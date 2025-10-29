@@ -1,0 +1,309 @@
+-- ~/.hammerspoon/scripts/祈禱機-活7-施放被動技能.lua
+-- 更新版：技能時長、閒置5秒、掛機280秒、剩30秒警告
+
+local mod = {}
+
+----------------------------------------------------------------------
+-- 參數（可改）
+----------------------------------------------------------------------
+local TARGET_APP_NAME   = "MapleStory"
+local REQUIRE_FRONTMOST = false     -- 是否只在遊戲前景才施放？
+local FOCUS_ON_CAST     = true      -- 施放前是否嘗試聚焦遊戲
+local TICK_SEC          = 0.5       -- 檢查頻率（秒）
+
+-- 技能與有效時間（秒）
+local SKILLS = {
+  { name="skill1", key="1", duration=300 },  -- 技能1：300秒
+  { name="skill2", key="2", duration=200 },  -- 技能2：200秒
+}
+
+-- 到期前 5~10% 預先重補
+local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.05, 0.10
+
+-- 左右輕點（先左→右）
+local WIGGLE_HOLD_MS = { 50, 70 }
+local WIGGLE_GAP_S   = { 0.05, 0.10 }
+
+-- 送鍵手感
+local PRE_KEY_DELAY_S   = { 0.04, 0.12 }
+local PRESS_MS          = { 150, 200 }
+local SAFEGUARD_REPRESS = true
+local REPRESS_GAP_S     = { 0.075, 0.118 }
+
+-- 「先 ↑、再 ⌥←、⌥→」的時序（含抖動）
+local T_BEFORE_UP   = 1.2
+local T_AFTER_UP    = 2.0
+local T_BETWEEN_OPT = 0.55
+local JITTER_PCT    = 0.20
+
+-- 🔔 掛機規則
+local HUMAN_GRACE_SEC = 5         -- 閒置5秒後才開始掛機倒數
+local IDLE_TOTAL_SEC  = 280       -- 掛機倒數總秒數（280秒）
+local IDLE_WARN_LAST  = 30        -- 剩下30秒開始每秒警告
+local IDLE_OS_ACTIVE_THRESHOLD = 0.8 -- （可保留但此版以 idleTime 為主）
+
+-- 除錯
+local DEBUG = true
+local function log(...) if DEBUG then print("[skillbot]", ...) end end
+
+----------------------------------------------------------------------
+-- 小工具
+----------------------------------------------------------------------
+math.randomseed(os.time())
+local function randf(a,b) return a + math.random()*(b-a) end
+local function randi(a,b) return math.floor(a + math.random()*(b-a+1)) end
+local function jitterp(base,pct) return math.max(0.01, base*(1+(math.random()*2-1)*pct)) end
+local function fmt_mmss(sec)
+  sec = math.max(0, math.floor(sec or 0))
+  local m = math.floor(sec / 60)
+  local s = sec % 60
+  return string.format("%d:%02d", m, s)
+end
+
+-- menubar（顯示：補施／掛機 mm:ss）
+local menuBar = nil
+local function ensureMenuBar()
+  if menuBar then return end
+  menuBar = hs.menubar.new()
+  if menuBar then menuBar:setTitle("待機") end
+end
+local function setBar(text) ensureMenuBar(); if menuBar then menuBar:setTitle(text) end end
+
+local function focusApp()
+  if not FOCUS_ON_CAST then return end
+  local app = hs.appfinder.appFromName(TARGET_APP_NAME)
+  if app then app:activate(true) end
+end
+
+local function ensureFrontmostIfNeeded()
+  if not REQUIRE_FRONTMOST then return true end
+  local fw = hs.window.frontmostWindow()
+  local app = fw and fw:application()
+  return app and app:name() == TARGET_APP_NAME
+end
+
+local function releaseAllModifiers()
+  for _,m in ipairs({"alt","cmd","ctrl","shift","fn"}) do
+    hs.eventtap.event.newKeyEvent({}, m, false):post()
+  end
+end
+
+local function settleBeforeNumbers()
+  hs.timer.usleep(90*1000)
+  releaseAllModifiers()
+  hs.timer.usleep(110*1000)
+  focusApp()
+  hs.timer.usleep(160*1000)
+end
+
+----------------------------------------------------------------------
+-- 送鍵
+----------------------------------------------------------------------
+local function rawKeyPress(keyChar, press_ms)
+  hs.timer.usleep(randf(PRE_KEY_DELAY_S[1], PRE_KEY_DELAY_S[2]) * 1e6)
+  local down = hs.eventtap.event.newKeyEvent({}, keyChar, true)
+  down:setProperty(hs.eventtap.event.properties.keyboardEventAutorepeat, 0)
+  down:post()
+  hs.timer.usleep((press_ms or randi(PRESS_MS[1], PRESS_MS[2])) * 1000)
+  local up = hs.eventtap.event.newKeyEvent({}, keyChar, false)
+  up:setProperty(hs.eventtap.event.properties.keyboardEventAutorepeat, 0)
+  up:post()
+  hs.timer.usleep(randi(20,80) * 1000)
+end
+
+local function wiggleLR()
+  rawKeyPress("left",  randi(WIGGLE_HOLD_MS[1], WIGGLE_HOLD_MS[2]))
+  hs.timer.usleep(randf(WIGGLE_GAP_S[1], WIGGLE_GAP_S[2]) * 1e6)
+  rawKeyPress("right", randi(WIGGLE_HOLD_MS[1], WIGGLE_HOLD_MS[2]))
+end
+
+local function modCombo(mods, keyChar, press_ms, pre_hold_ms, post_hold_ms)
+  press_ms     = press_ms     or 60
+  pre_hold_ms  = pre_hold_ms or 60
+  post_hold_ms = post_hold_ms or 60
+  for _, m in ipairs(mods or {}) do hs.eventtap.event.newKeyEvent({}, m, true):post() end
+  hs.timer.usleep(pre_hold_ms * 1000)
+  local kc = hs.keycodes.map[keyChar] or keyChar
+  hs.eventtap.event.newKeyEvent({}, kc, true):post()
+  hs.timer.usleep(press_ms * 1000)
+  hs.eventtap.event.newKeyEvent({}, kc, false):post()
+  hs.timer.usleep(post_hold_ms * 1000)
+  for i = #(mods or {}), 1, -1 do
+    hs.eventtap.event.newKeyEvent({}, (mods or {})[i], false):post()
+  end
+end
+
+----------------------------------------------------------------------
+-- 施放：↑ → ⌥← → ⌥→ → 小晃 → 數字鍵（含補按）
+----------------------------------------------------------------------
+local function castOne(skill)
+  if not ensureFrontmostIfNeeded() then return false end
+  settleBeforeNumbers()
+
+  -- 上 ↑
+  hs.timer.usleep(jitterp(T_BEFORE_UP, JITTER_PCT) * 1e6)
+  rawKeyPress("up", 60)
+  hs.timer.usleep(jitterp(T_AFTER_UP, JITTER_PCT) * 1e6)
+
+  -- ⌥← → ⌥→
+  modCombo({"alt"}, "left", 60, 60, 60)
+  hs.timer.usleep(jitterp(T_BETWEEN_OPT, JITTER_PCT) * 1e6)
+  modCombo({"alt"}, "right", 60, 60, 60)
+
+  -- 左右小晃
+  wiggleLR()
+
+  -- 施放數字鍵（含一次補按）
+  local p = randi(PRESS_MS[1], PRESS_MS[2])
+  rawKeyPress(skill.key, p)
+  if SAFEGUARD_REPRESS then
+    hs.timer.usleep(randf(REPRESS_GAP_S[1], REPRESS_GAP_S[2]) * 1e6)
+    rawKeyPress(skill.key, math.max(140, p - 10))
+  end
+
+  log("cast:", skill.name, "key", skill.key)
+  return true
+end
+
+----------------------------------------------------------------------
+-- 調度狀態
+----------------------------------------------------------------------
+local enabled, ticker = false, nil
+local state = {}
+
+local function scheduleNext(skill, baseEpoch)
+  local e = randf(EARLY_PCT_MIN, EARLY_PCT_MAX)
+  local due = baseEpoch + skill.duration * (1.0 - e)
+  state[skill.name] = { nextDue = due, earlyPct = e }
+  log(string.format("next %s in %.1fs (early %.1f%%)",
+      skill.name, due - baseEpoch, e*100))
+end
+
+local function nearestRemaining()
+  local now = hs.timer.secondsSinceEpoch()
+  local best = nil
+  for _, sk in ipairs(SKILLS) do
+    local st = state[sk.name]
+    if st and st.nextDue then
+      local remain = math.max(0, math.floor(st.nextDue - now))
+      best = (best == nil) and remain or math.min(best, remain)
+    end
+  end
+  return best
+end
+
+----------------------------------------------------------------------
+-- 掛機偵測：使用 hs.host.idleTime()
+----------------------------------------------------------------------
+local lastWarnShown = -1
+
+local function currentIdleRemain(now)
+  local idleSecs = hs.host.idleTime() or 0  -- 系統無動作秒數  [oai_citation:0‡Hammerspoon](https://www.hammerspoon.org/docs/hs.host.html?utm_source=chatgpt.com)
+  log("… system idle time = " .. string.format("%.1f", idleSecs))
+  if idleSecs < HUMAN_GRACE_SEC then
+    return nil
+  end
+  local remain = IDLE_TOTAL_SEC - math.floor(idleSecs - HUMAN_GRACE_SEC)
+  if remain < 0 then remain = 0 end
+  return remain
+end
+
+----------------------------------------------------------------------
+-- 顯示：補施 + 掛機
+----------------------------------------------------------------------
+local function updateBarDuringRun()
+  local now    = hs.timer.secondsSinceEpoch()
+  local buffR  = nearestRemaining()
+  local buffTxt = (buffR ~= nil) and fmt_mmss(buffR) or "--:--"
+  local idleRem = currentIdleRemain(now)
+
+  if idleRem ~= nil then
+    setBar(("補施 %s | 掛機 %s"):format(buffTxt, fmt_mmss(idleRem)))
+    if idleRem <= IDLE_WARN_LAST and idleRem ~= lastWarnShown then
+      lastWarnShown = idleRem
+      hs.alert.show(string.format("掛機將在 %d 秒後到達", idleRem), 0.9)
+    end
+  else
+    setBar("補施 " .. buffTxt)
+  end
+end
+
+----------------------------------------------------------------------
+-- 主循環
+----------------------------------------------------------------------
+local function tick()
+  if not enabled then return end
+  local now = hs.timer.secondsSinceEpoch()
+  for _, sk in ipairs(SKILLS) do
+    local st = state[sk.name]
+    if not st or not st.nextDue then
+      scheduleNext(sk, now)
+    elseif now >= st.nextDue then
+      if castOne(sk) then
+        scheduleNext(sk, now)
+      else
+        state[sk.name].nextDue = now + 2
+      end
+    end
+  end
+  updateBarDuringRun()
+end
+
+----------------------------------------------------------------------
+-- 啟動／停止邏輯
+----------------------------------------------------------------------
+local function dockBadge(s)
+  pcall(function() hs.dockicon.setBadge(s and tostring(s) or "") end)
+end
+
+local function castBothNow()
+  local now = hs.timer.secondsSinceEpoch()
+  for _, sk in ipairs(SKILLS) do
+    if castOne(sk) then scheduleNext(sk, now) end
+  end
+  -- 當腳本主動施放，也視為「有人操作」，重置閒置計時
+  log("🔔 castBothNow: reset idle at now =", now)
+  updateBarDuringRun()
+end
+
+local function startAfterCountdown()
+  local function go(n)
+    if n == 0 then
+      dockBadge("")
+      enabled = true
+      castBothNow()
+      if ticker then ticker:stop() end
+      ticker = hs.timer.doEvery(TICK_SEC, tick)
+      log("enabled")
+      return
+    end
+    setBar("啟動 " .. tostring(n))
+    hs.timer.doAfter(1, function() go(n-1) end)
+  end
+  go(3)
+end
+
+local function stopAll()
+  enabled = false
+  if ticker then ticker:stop() end
+  ticker = nil
+  dockBadge("")
+  setBar("待機")
+  log("stopped")
+end
+
+----------------------------------------------------------------------
+-- 熱鍵
+----------------------------------------------------------------------
+hs.hotkey.bind({"cmd","alt"}, "F10", function()
+  if enabled then stopAll() else startAfterCountdown() end
+end)
+hs.hotkey.bind({"cmd","alt"}, "F8", function() castBothNow() end)
+hs.hotkey.bind({"cmd","alt"}, "F9", function() stopAll() end)
+
+-- 初始化
+ensureMenuBar()
+setBar("待機")
+log("loaded. Press ⌘⌥F10 to start (3s countdown).")
+
+return mod
