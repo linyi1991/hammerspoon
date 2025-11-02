@@ -1,5 +1,5 @@
--- ~/.hammerspoon/scripts/祈禱機-活7-施放被動技能.lua  
--- keyCode 判定版：僅當 keyCode == 6（Z 鍵）時才重置掛機，並加入調試 log
+-- ~/.hammerspoon/scripts/祈禱機-活7-施放被動技能.lua
+-- keyCode 判定版 + menubar 點擊重置：僅當 keyCode == 6（Z 鍵）或點擊 menubar 時才重置掛機；含調試 log
 
 local mod = {}
 
@@ -15,7 +15,7 @@ local SKILLS = {
 }
 
 local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.05, 0.10
-local HUMAN_GRACE_SEC     = 10    -- 無 z 鍵操作 10 秒視為掛機
+local HUMAN_GRACE_SEC     = 10    -- 無 Z 鍵（或 menubar 點擊）操作 10 秒後才開始計入掛機倒數
 local IDLE_TOTAL_SEC      = 280
 local IDLE_WARN_LAST      = 30
 
@@ -33,15 +33,23 @@ local function fmt_mmss(sec)
   return string.format("%d:%02d", m, s)
 end
 
+-- === Menu Bar ===
 local menuBar = nil
 local function ensureMenuBar()
-  if not menuBar then menuBar = hs.menubar.new() end
+  if not menuBar then
+    menuBar = hs.menubar.new()
+    if menuBar then
+      menuBar:setTitle("待機")
+      menuBar:setTooltip("點一下可重置掛機倒數（等效 Z）")
+    end
+  end
 end
 local function setBar(text)
   ensureMenuBar()
   if menuBar then menuBar:setTitle(text) end
 end
 
+-- === 前景切換 ===
 local function focusApp()
   if not FOCUS_ON_CAST then return end
   local app = hs.appfinder.appFromName(TARGET_APP_NAME)
@@ -50,11 +58,26 @@ end
 
 -- === 鍵盤事件監聽（僅指定 keyCode）===
 local lastHumanAt = hs.timer.secondsSinceEpoch()
-local Z_KEY_CODE = 6  -- 根據 log 決定 Z 鍵 keyCode 為 6
+local Z_KEY_CODE = 6  -- Z 鍵（美式鍵盤）的 keyCode，若不同可用 EventViewer 觀察
 
-local function resetIdle()
+local function resetIdle(source)
   lastHumanAt = hs.timer.secondsSinceEpoch()
-  log("🔔 human input (Z key) detected — lastHumanAt reset =", lastHumanAt)
+  log("🔔 idle reset by:", source or "unknown", "at", lastHumanAt)
+end
+
+-- menubar 點擊 → 手動重置 idle（等同於按 Z）
+local function enableMenuClickReset()
+  ensureMenuBar()
+  if menuBar then
+    menuBar:setClickCallback(function()
+      resetIdle("menubar-click")
+      hs.alert.show("⟳ 掛機倒數已重置", 0.8)
+      -- 點一下也順便更新一次顯示
+      local now = hs.timer.secondsSinceEpoch()
+      local remain = IDLE_TOTAL_SEC
+      setBar(("補施 --:-- | 掛機 %s"):format(fmt_mmss(remain)))
+    end)
+  end
 end
 
 local keyboardWatcher = hs.eventtap.new(
@@ -64,11 +87,8 @@ local keyboardWatcher = hs.eventtap.new(
     local kc = ev:getKeyCode()
     local flags = ev:getFlags()
     log("key event (watcher): keyCode =", kc, "flags =", flags, "autorepeat =", ar)
-    if ar == 0 then
-      if kc == Z_KEY_CODE then
-        -- 若有修飾鍵（shift, ctrl 等）被按下，也可視為有人操作（或視需求忽略）
-        resetIdle()
-      end
+    if ar == 0 and kc == Z_KEY_CODE then
+      resetIdle("Z-key")
     end
     return false
   end
@@ -184,7 +204,7 @@ local function castBothNow()
   for _, sk in ipairs(SKILLS) do
     if castOne(sk) then scheduleNext(sk, now) end
   end
-  resetIdle()
+  resetIdle("castBothNow")
   updateBarDuringRun()
 end
 
@@ -219,8 +239,9 @@ end)
 hs.hotkey.bind({"cmd","alt"}, "F8", function() castBothNow() end)
 hs.hotkey.bind({"cmd","alt"}, "F9", function() stopAll() end)
 
--- 初始化
+-- === 初始化 ===
 setBar("待機")
-log("✔ keyCode 判定版 loaded – 只用 Z keyCode ("..Z_KEY_CODE..")／10 秒掛機")
+enableMenuClickReset()  -- ✅ 點擊 menu bar → 重置掛機倒數（等效 Z）
+log("✔ keyCode 判定版 loaded – 只用 Z keyCode ("..Z_KEY_CODE..")／10 秒掛機 + menubar 點擊重置")
 
 return mod
