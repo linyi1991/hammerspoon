@@ -15,11 +15,11 @@ local TARGET_APP_NAME = "MapleStory"   -- 遊戲 App 名稱
 
 -- 時序（秒）
 local T_LEFT_HOLD         = 5       -- ← 長按秒數
-local T_RIGHT_HOLD        = 1.25     -- → 長按秒數
+local T_RIGHT_HOLD        = 1.35     -- → 長按秒數
 local T_WAIT_BEFORE_UP    = 1.2       -- 等待再按 ↑
 local T_WAIT_AFTER_UP     = 2       -- 按 ↑ 後等待
 local T_BETWEEN_OPT_LR    = 0.55    -- ⌥← 與 ⌥→ 之間間隔
-local T_WAIT_BEFORE_CLICK = 2.0     -- 多鍵序列完成後，延遲多少秒再點擊
+local T_WAIT_BEFORE_CLICK = 1.75     -- 多鍵序列完成後，延遲多少秒再點擊
 local T_FINAL_WAIT        = 280     -- 流程最後等待（也作為循環間隔）
 
 --   多鍵序列（依序按下；可含修飾鍵）
@@ -47,7 +47,7 @@ local ABS_CLICK = { x=780, y=420 }        -- CLICK_MODE="absolute" 時使用
 local LOOP_ENABLED       = false          -- 預設不循環；⌘⌥F10 切換
 -- local LOOP_GAP_SECONDS   = T_FINAL_WAIT   -- 每輪結束後隔多久再跑
 local LOOP_GAP_SECONDS   = 0   -- 每輪結束後隔多久再跑
-local LOOP_MAX_RUNS      = 0              -- 0=無上限；>0 最多跑 N 次
+local LOOP_MAX_RUNS      =6 -- 0=無上限；>0 最多跑 N 次
 
 -- 安全：單次長按最大上限（避免卡鍵）
 local SAFETY_MAX_HOLD = 20
