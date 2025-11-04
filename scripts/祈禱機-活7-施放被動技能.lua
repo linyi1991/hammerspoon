@@ -107,13 +107,14 @@ local function currentIdleRemain(now)
   return remain
 end
 
--- === 技能施放邏輯 ===
+-- === 技能施放邏輯（最小調整＋容錯） ===
 local function rawKeyPress(keyChar)
   hs.eventtap.keyStroke({}, keyChar)
   hs.timer.usleep(randi(150,200)*1000)
 end
 
 local function castOne(skill)
+  -- 視窗前景檢查（原樣）
   if REQUIRE_FRONTMOST then
     local fw = hs.window.frontmostWindow()
     local app = fw and fw:application()
@@ -121,19 +122,86 @@ local function castOne(skill)
       return false
     end
   end
+
   focusApp()
-  hs.timer.usleep(randf(1.2,1.2*(1+0.2))*1e6)
-  rawKeyPress("up")
-  hs.timer.usleep(randf(2.0,2.0*(1+0.2))*1e6)
+
+  -- 逐鍵覆寫（只影響 '1'、'2'；其他鍵完全走舊行為）
+  local OVERRIDE = {
+    -- 1：要左右移動、速度快；左右停留時間一致（建議 tiny_min=tiny_max）
+    ["1"] = {
+  pre_ms = 40, mid_ms = 0,
+  do_alt = true,   -- 開 alt（已由上面改成對稱，不會飄）
+  do_lr  = false,   -- ⛔ 關掉 raw 左右，避免第二輪「左右」.保留 light 左右補一點人味
+  lr_gap_ms = 16,  -- alt 左右間隔：40ms（你也可試 35~45）
+  tiny_min = 7, tiny_max = 7  -- 固定同值，左右停留時間一致 & 肉眼較明顯
+},
+    -- 2：不左右移動；在 1 之後延 1 秒才出手
+    ["2"] = {
+      pre_ms = 800, mid_ms = 0,    -- ★ 改成 1000ms
+      do_alt = false, do_lr = false,
+      lr_gap_ms = 60, tiny_min = 20, tiny_max = 20
+    },
+  }
+
+  local t = OVERRIDE[skill.key]
+
+  -- helper：把任何值變成安全的數字（避免 nil 導致 usleep 崩潰）
+  local function N(v, default) return tonumber(v) or default end
+
+  -- 原先：randf(1.2,1.44)s；覆寫時用毫秒級
+  if t then
+    hs.timer.usleep(N(t.pre_ms, 0) * 1000)
+  else
+    hs.timer.usleep(randf(1.2, 1.2*(1+0.2)) * 1e6)
+  end
+
+  rawKeyPress("up")  -- 保留
+
+  -- 原先：randf(2.0,2.4)s；覆寫時用毫秒級
+  if t then
+    hs.timer.usleep(N(t.mid_ms, 0) * 1000)
+  else
+    hs.timer.usleep(randf(2.0, 2.0*(1+0.2)) * 1e6)
+  end
+
+-- alt+left / gap / alt+right / gap / alt+left  ← 對稱收回，淨位移≈0
+if (not t) or (t.do_alt ~= false) then
+  local gap = N(t and t.lr_gap_ms, 60)
   hs.eventtap.keyStroke({"alt"}, "left")
-  hs.timer.usleep(60*1000)
+  hs.timer.usleep(gap * 1000)
   hs.eventtap.keyStroke({"alt"}, "right")
+  -- 🟢 刪掉原本最後這行，避免多一次「left」
+  -- hs.timer.usleep(gap * 1000)
+  -- hs.eventtap.keyStroke({"alt"}, "left")
+end
+
+  -- left / tiny / right
+if not t or (t.do_lr ~= false) then
+  -- 取左右共用的 tiny 間隔；若是 '1' 建議 tiny_min==tiny_max 固定值，避免隨機造成位移
+  local tinyGap
+  if t then
+    local minv = t.tiny_min or 50
+    local maxv = t.tiny_max or 100
+    if minv == maxv then
+      tinyGap = minv
+    else
+      tinyGap = randi(minv, maxv)
+    end
+  else
+    tinyGap = math.floor(randf(50, 100)) -- 舊版 0.05~0.10s 的毫秒化
+  end
+
   rawKeyPress("left")
-  hs.timer.usleep(randf(0.05,0.10)*1e6)
+  hs.timer.usleep(tinyGap * 1000)   -- 左後等待
   rawKeyPress("right")
+  hs.timer.usleep(tinyGap * 1000)   -- 右後等待（對稱補齊）
+end
+
+  -- 技能按兩下（原樣）
   rawKeyPress(skill.key)
-  hs.timer.usleep(randi(30,80)*1000)
+  hs.timer.usleep(randi(30,80) * 1000)
   rawKeyPress(skill.key)
+
   log("cast:", skill.name, "key", skill.key)
   return true
 end
