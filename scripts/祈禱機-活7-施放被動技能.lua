@@ -13,10 +13,11 @@ local SKILLS = {
   { name="skill1", key="1", duration=300 },
   { name="skill2", key="2", duration=300 },
 }
+-- 提前施放百分比
+local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.01, 0.03
 
-local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.05, 0.10
-local HUMAN_GRACE_SEC     = 5    -- 無 Z 鍵（或 menubar 點擊）操作 10 秒後才開始計入掛機倒數
-local IDLE_TOTAL_SEC      = 295
+local HUMAN_GRACE_SEC     = 10    -- 無 Z 鍵（或 menubar 點擊）操作 10 秒後才開始計入掛機倒數
+local IDLE_TOTAL_SEC      = 290
 local IDLE_WARN_LAST      = 30
 
 local DEBUG = true
@@ -133,13 +134,13 @@ local function castOne(skill)
   do_alt = true,   -- 開 alt（已由上面改成對稱，不會飄）
   do_lr  = false,   -- ⛔ 關掉 raw 左右，避免第二輪「左右」.保留 light 左右補一點人味
   lr_gap_ms = 16,  -- alt 左右間隔：40ms（你也可試 35~45）
-  tiny_min = 7, tiny_max = 7  -- 固定同值，左右停留時間一致 & 肉眼較明顯
+  tiny_min = 5, tiny_max = 5  -- 固定同值，左右停留時間一致 & 肉眼較明顯
 },
     -- 2：不左右移動；在 1 之後延 1 秒才出手
     ["2"] = {
       pre_ms = 800, mid_ms = 0,    -- ★ 改成 1000ms
       do_alt = false, do_lr = false,
-      lr_gap_ms = 60, tiny_min = 20, tiny_max = 20
+      lr_gap_ms = 60, tiny_min = 5, tiny_max = 5
     },
   }
 
