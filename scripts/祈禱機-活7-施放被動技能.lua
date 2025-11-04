@@ -14,7 +14,7 @@ local SKILLS = {
   { name="skill2", key="2", duration=300 },
 }
 -- 提前施放百分比
-local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.01, 0.03
+local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.03, 0.05
 
 local HUMAN_GRACE_SEC     = 10    -- 無 Z 鍵（或 menubar 點擊）操作 10 秒後才開始計入掛機倒數
 local IDLE_TOTAL_SEC      = 290
