@@ -26,11 +26,11 @@ local T_FINAL_WAIT        = 280     -- 流程最後等待（也作為循環間�
 --   每項 {mods=<修飾鍵陣列>, key=<鍵名>, press_ms=<按住毫秒(可省)>}
 --   key 例："2","3","4","z","f1","left","right"
 local ACTION_KEYS = {
-  { mods = {}, key = "1", press_ms = 300 },
-  { mods = {}, key = "2", press_ms = 300 },
+  { mods = {}, key = "1", press_ms = 250 },
+  { mods = {}, key = "2", press_ms = 250 },
   -- { mods = {}, key = "4", press_ms = 120 },
 }
-local ACTION_KEYS_INTERVAL = 1   -- 多鍵之間的間隔秒數
+local ACTION_KEYS_INTERVAL = 1.5   -- 多鍵之間的間隔秒數
 
 -- 視窗固定（選擇性）
 local PIN_WINDOW_BEFORE_RUN = false
@@ -47,7 +47,7 @@ local ABS_CLICK = { x=780, y=420 }        -- CLICK_MODE="absolute" 時使用
 local LOOP_ENABLED       = false          -- 預設不循環；⌘⌥F10 切換
 -- local LOOP_GAP_SECONDS   = T_FINAL_WAIT   -- 每輪結束後隔多久再跑
 local LOOP_GAP_SECONDS   = 0   -- 每輪結束後隔多久再跑
-local LOOP_MAX_RUNS      =6 -- 0=無上限；>0 最多跑 N 次
+local LOOP_MAX_RUNS      =7 -- 0=無上限；>0 最多跑 N 次
 
 -- 安全：單次長按最大上限（避免卡鍵）
 local SAFETY_MAX_HOLD = 20

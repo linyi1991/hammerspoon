@@ -25,11 +25,11 @@ local TARGET_BUNDLE_IDS = {
 }
 
 -- 路徑/節奏設定（秒）
-local RIGHT_SEC        = 28.0   -- 向右總持續秒數
-local LEFT_SEC         = 28.0   -- 向左總持續秒數
-local REST_SEC         = 1.593    -- 每輪休息秒數
+local RIGHT_SEC        = 15.0   -- 向右總持續秒數
+local LEFT_SEC         = 15.0   -- 向左總持續秒數
+local REST_SEC         = 0.593    -- 每輪休息秒數
 local MOVE_CHUNK_SEC   = 0.995182  -- 每次移動多久（Q+方向鍵按住）
-local ATTACK_STOP_SEC  = 4.755    -- 每段移動後原地 Z 多久
+local ATTACK_STOP_SEC  = 1.455    -- 每段移動後原地 Z 多久
 
 -- 技能鍵
 local SKILL_KEY  = "q"          -- 瞬移技能（按住）
@@ -37,8 +37,8 @@ local ATTACK_KEY = "z"          -- 攻擊/補血技能（按住）
 
 -- Buff：開循環就先施放一次，之後固定間隔施放
 local BUFF_KEYS      = { "5", "6" } -- 若用數字小鍵盤可寫 { "pad5", "pad6" }
-local BUFF_INTERVAL  = 298          -- 每多少秒放一次（300s 到期前 1s 先補）
-local BUFF_PRESS_MS  = 100           -- 每顆 Buff 鍵按住毫秒
+local BUFF_INTERVAL  = 198          -- 每多少秒放一次（300s 到期前 1s 先補）
+local BUFF_PRESS_MS  = 150           -- 每顆 Buff 鍵按住毫秒
 local BUFF_GAP_MS    = 420          -- 兩顆 Buff 鍵之間的間隔
 local BUFF_RETRIES   = 0            -- 補按次數（0=不補按；建議 1）
 
