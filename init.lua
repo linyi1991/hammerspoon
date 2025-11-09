@@ -23,7 +23,6 @@ hs.hotkey.bind({"cmd","alt"}, "F9", globalEmergencyStop)
 ------------------------------------------------------------
 -- 將下面這行改成你想啟用的腳本檔名（不用加 .lua）
 -- local ACTIVE_SCRIPT = "祈禱機-戰鬥7-死2攻擊"
--- local ACTIVE_SCRIPT = "祈禱機-戰鬥7-CD"
 -- local ACTIVE_SCRIPT = "祈禱機-死7-軍1攻擊"
 -- local ACTIVE_SCRIPT = "祈禱機-死7-自動施放回自由"
  local ACTIVE_SCRIPT = "祈禱機-活7-施放被動技能"

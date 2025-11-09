@@ -14,11 +14,11 @@ local SKILLS = {
   { name="skill2", key="2", duration=300 },
 }
 -- 提前施放百分比
-local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.03, 0.05
+local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.003, 0.01
 
-local HUMAN_GRACE_SEC     = 10    -- 無 Z 鍵（或 menubar 點擊）操作 10 秒後才開始計入掛機倒數
-local IDLE_TOTAL_SEC      = 290
-local IDLE_WARN_LAST      = 30
+local HUMAN_GRACE_SEC     = 5    -- 無 Z 鍵（或 menubar 點擊）操作 10 秒後才開始計入掛機倒數
+local IDLE_TOTAL_SEC      = 300
+local IDLE_WARN_LAST      = 10
 
 local DEBUG = true
 local function log(...) if DEBUG then print("[skillbot]", ...) end end
@@ -128,20 +128,19 @@ local function castOne(skill)
 
   -- 逐鍵覆寫（只影響 '1'、'2'；其他鍵完全走舊行為）
   local OVERRIDE = {
-    -- 1：要左右移動、速度快；左右停留時間一致（建議 tiny_min=tiny_max）
     ["1"] = {
-  pre_ms = 40, mid_ms = 0,
-  do_alt = true,   -- 開 alt（已由上面改成對稱，不會飄）
-  do_lr  = false,   -- ⛔ 關掉 raw 左右，避免第二輪「左右」.保留 light 左右補一點人味
-  lr_gap_ms = 16,  -- alt 左右間隔：40ms（你也可試 35~45）
-  tiny_min = 5, tiny_max = 5  -- 固定同值，左右停留時間一致 & 肉眼較明顯
-},
-    -- 2：不左右移動；在 1 之後延 1 秒才出手
-    ["2"] = {
-      pre_ms = 800, mid_ms = 0,    -- ★ 改成 1000ms
-      do_alt = false, do_lr = false,
-      lr_gap_ms = 60, tiny_min = 5, tiny_max = 5
+      pre_ms = 40,    -- 施放前延遲 (ms)
+      do_alt = true,  -- 是否使用 alt+方向鍵 衝刺
+      do_lr  = false, -- 是否做 left→right 輕點
+      lr_gap_ms = 12, -- alt 左右間隔 (越小越快)
+      tiny_min = 10, tiny_max = 10  -- left/right 輕點間隔 (do_lr=false 時不會生效)
     },
+  
+    ["2"] = {
+      pre_ms = 500,   -- skill1 施放後延遲多久才施放 skill2 (ms)
+      do_alt = false, -- skill2 不左右衝刺
+      do_lr  = false, -- skill2 不左右輕點
+    }
   }
 
   local t = OVERRIDE[skill.key]
