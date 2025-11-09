@@ -17,7 +17,7 @@ local SKILLS = {
 local EARLY_PCT_MIN, EARLY_PCT_MAX = 0.003, 0.01
 
 local HUMAN_GRACE_SEC     = 5    -- 無 Z 鍵（或 menubar 點擊）操作 10 秒後才開始計入掛機倒數
-local IDLE_TOTAL_SEC      = 300
+local IDLE_TOTAL_SEC      = 295
 local IDLE_WARN_LAST      = 10
 
 local DEBUG = true
