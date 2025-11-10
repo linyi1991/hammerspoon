@@ -19,7 +19,7 @@ local REQUIRE_FRONTMOST             = true     -- 嚴格要求 Maple 在前景�
 local FOCUS_ON_ACTION               = true     -- 每段動作前自動帶前景
 local FOCUS_ON_MENU_CLICK           = true     -- 點 menubar 也會帶前景
 local FOCUS_WAIT_TIMEOUT_MS         = 900      -- 等待前景上位最長時間
-local CAST_FOCUS_SETTLE_MS          = 350      -- 聚焦後沉靜，避免菜單/IME 截流
+local CAST_FOCUS_SETTLE_MS          = 400      -- 聚焦後沉靜，避免菜單/IME 截流
 
 -- 5 分鐘整合節拍
 local CYCLE_SEC                     = 290
@@ -42,13 +42,13 @@ local SKILL1_KEY                    = "1"
 local SKILL2_KEY                    = "2"
 local KEY_TAP_MS                    = 85
 local SAME_KEY_GUARD_MS             = 260      -- 同鍵 guard 時窗（防誤連擊）
-local SKILL_CAST_GAP_MS             = 720      -- 1→2 主要間隔（可 650~800ms）
+local SKILL_CAST_GAP_MS             = 800      -- 1→2 主要間隔（可 650~800ms）
 local SKILL_RETRY_DELAY_MS          = 300      -- 整套重試延遲（目前不啟用第二輪整套重試）
 
 -- 攻擊段
 local POST_CAST_DELAY_SEC           = 1.25
 local ATTACK_HOLD_MODE              = "fixed"  -- fixed | random
-local ATTACK_HOLD_SEC               = 5
+local ATTACK_HOLD_SEC               = 3
 local ATTACK_HOLD_MIN_SEC           = 10
 local ATTACK_HOLD_MAX_SEC           = 15
 
@@ -316,7 +316,7 @@ local function castSkillSequence_once()
   local r2 = tapKeyToApp_withResult(app, SKILL2_KEY, KEY_TAP_MS)
 
   if not (r2.down and r2.up) then
-    hs.timer.usleep(120 * 1000)
+    hs.timer.usleep(180 * 1000)
     log("cast buff: skill2 (", SKILL2_KEY, ") try#2(app)")
     local r2b = tapKeyToApp_withResult(app, SKILL2_KEY, KEY_TAP_MS)
     if not (r2b.down and r2b.up) then
