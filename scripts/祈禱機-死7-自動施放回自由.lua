@@ -47,7 +47,7 @@ local ABS_CLICK = { x=780, y=420 }        -- CLICK_MODE="absolute" 時使用
 local LOOP_ENABLED       = false          -- 預設不循環；⌘⌥F10 切換
 -- local LOOP_GAP_SECONDS   = T_FINAL_WAIT   -- 每輪結束後隔多久再跑
 local LOOP_GAP_SECONDS   = 0   -- 每輪結束後隔多久再跑
-local LOOP_MAX_RUNS      =7 -- 0=無上限；>0 最多跑 N 次
+local LOOP_MAX_RUNS      = 20 -- 0=無上限；>0 最多跑 N 次
 
 -- 安全：單次長按最大上限（避免卡鍵）
 local SAFETY_MAX_HOLD = 20
